@@ -35,7 +35,7 @@ int main(int argc, char** argv){
     memset(count,0,sizeof(count[0])*10000);
 
     pid_t pid = fork();
-    printf("pid = %d\n",pid);
+    // printf("pid = %d\n",pid);
     switch (pid) {
         case -1: /* error */
             FATAL("%s", strerror(errno));
