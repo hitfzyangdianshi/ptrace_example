@@ -31,8 +31,8 @@ char composite_number[]="7778501398155158234329379851044392495981905731517000759
 
 int main(int argc, char** argv){
 
-    int count[10000];
-    memset(count,0,sizeof(count[0])*10000);
+    int count[1000000];
+    memset(count,0,sizeof(count[0])*1000000);
 
     pid_t pid = fork();
     // printf("pid = %d\n",pid);
@@ -43,7 +43,7 @@ int main(int argc, char** argv){
             ptrace(PTRACE_TRACEME, 0, 0, 0);
             /* Because we're now a tracee, execvp will block until the parent
              * attaches and allows us to continue. */
-            char challenge_path[]="../../DPI_challenge/cmake-build-debug/DPI_challenge";
+            char challenge_path[]="../DPI_challenge-interposition/DPI_challenge";
             char *args[]={challenge_path,argv[1], NULL};
             execvp(challenge_path,args);
             FATAL("%s", strerror(errno));
@@ -61,20 +61,20 @@ int main(int argc, char** argv){
             FATAL("%s", strerror(errno));
 
         /* Gather system call arguments */
-        struct user_regs_struct regs;
-        if (ptrace(PTRACE_GETREGS, pid, 0, &regs) == -1)
+        struct user_regs uregs;
+        if (ptrace(PTRACE_GETREGS, pid, 0, &uregs) == -1)
             FATAL("%s", strerror(errno));
 
 
 
-        long syscall_ = (long)regs.orig_rax;
+        long syscall_ = (long)uregs.uregs[7];
 
         /* Print a representation of the system call */
-       // if(syscall_!=-1)
-       fprintf(stderr, "%ld(%ld, %ld, %ld, %ld, %ld, %ld)",
-                    syscall_,
-                    (long)regs.rdi, (long)regs.rsi, (long)regs.rdx,
-                    (long)regs.r10, (long)regs.r8,  (long)regs.r9);
+        // if(syscall_!=-1)
+        fprintf(stderr, "%ld(%ld, %ld, %ld, %ld, %ld, %ld)",
+                syscall_,
+                (long)uregs.uregs[0], (long)uregs.uregs[1], (long)uregs.uregs[2],
+                (long)uregs.uregs[3], (long)uregs.uregs[4],  (long)uregs.uregs[5]);
 
 
         /* Run system call and stop on exit */
@@ -84,17 +84,17 @@ int main(int argc, char** argv){
             FATAL("%s", strerror(errno));
 
         /* Get system call result */
-        if (ptrace(PTRACE_GETREGS, pid, 0, &regs) == -1) {
+        if (ptrace(PTRACE_GETREGS, pid, 0, &uregs) == -1) {
 
             // fputs(" = ?\n", stderr);
             if (errno == ESRCH && !(syscall_ == SYS_exit || syscall_ == SYS_exit_group))
-                exit(regs.rdi); // system call was _exit(2) or similar
+                exit(uregs.uregs[0]); // system call was _exit(2) or similar
             if(!(syscall_ == SYS_exit || syscall_ == SYS_exit_group))
                 FATAL("%s", strerror(errno));
         }
 
         /* Print system call result */
-        fprintf(stderr, " = %ld\n", (long)regs.rax);
+        fprintf(stderr, " = %ld\n", (long)uregs.uregs[0]);
         if(syscall_!=-1) {
             count[syscall_]++;
         }
@@ -105,18 +105,18 @@ int main(int argc, char** argv){
             break;
         }
         else if(syscall_ == SYS_exit || syscall_ == SYS_exit_group){
-            if((long)regs.rdi==0) {
+            if((long)uregs.uregs[0]==0) {
                 break;
             }
             else{
-                fprintf(stderr, "[INFO] challenge exit code is %ld\n",(long)regs.rdi);
+                fprintf(stderr, "[INFO] challenge exit code is %ld\n",(long)uregs.uregs[0]);
                 break;
             }
         }
     }
 
 
-    for(int i=0;i<10000;i++){
+    for(int i=0;i<1000000;i++){
         if(count[i]>0){
             printf("%d\t%d\n", i, count[i]);
         }
